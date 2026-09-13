@@ -65,7 +65,7 @@ local Settings = {
     ShootMode = "Normal", 
     Smoothness = 12,      
     FOVRadius = 130,
-    BulletSpeed = 1200,   -- Universal projectile velocity simulation benchmark
+    BulletSpeed = 1200,   
     ESPTransparency = 0.4,
     MaxDistance = 1500,
     AimKey = Enum.KeyCode.E,
@@ -93,11 +93,11 @@ local FireRates = {
 }
 
 local AccentPresets = {
-    Color3.fromRGB(0, 230, 115),   -- Emerald Neon
-    Color3.fromRGB(0, 160, 255),   -- Electric Cyan
-    Color3.fromRGB(150, 80, 255),  -- Cosmic Purple
-    Color3.fromRGB(255, 60, 100),  -- Radiant Crimson
-    Color3.fromRGB(255, 200, 0)    -- Amber Gold
+    Color3.fromRGB(0, 230, 115),   
+    Color3.fromRGB(0, 160, 255),   
+    Color3.fromRGB(150, 80, 255),  
+    Color3.fromRGB(255, 60, 100),  
+    Color3.fromRGB(255, 200, 0)    
 }
 
 local Styles = {
@@ -124,7 +124,7 @@ local function TweenObj(obj, goal, duration, style, dir)
     return tween
 end
 
---// Drawing Vector FOV Crosshair & Target Indicator Framework (Safe Initialization)
+--// Drawing Vector FOV Crosshair & Target Indicator Framework
 local FOVCircle, TargetDot
 if Drawing and Drawing.new then
     pcall(function()
@@ -183,7 +183,7 @@ local function UniversalDestruct()
 end
 env[CurrentScriptID] = UniversalDestruct 
 
---// Accurate Analytic Quadratic Bullet Intercept Solver (Universal Ballistics Engine)
+--// Accurate Analytic Quadratic Bullet Intercept Solver
 local function GetInterceptPosition(shooterPos, targetPos, targetVel, bulletSpeed)
     local r = targetPos - shooterPos
     local v = targetVel
@@ -193,40 +193,26 @@ local function GetInterceptPosition(shooterPos, targetPos, targetVel, bulletSpee
     local c = r.Magnitude^2
     
     local discriminant = (b * b) - (4 * a * c)
-    if discriminant < 0 then
-        return nil
-    end
+    if discriminant < 0 then return nil end
     
     local sqrtDisc = math.sqrt(discriminant)
     local t1 = (-b - sqrtDisc) / (2 * a)
     local t2 = (-b + sqrtDisc) / (2 * a)
     
     local t = nil
-    if t1 > 0 and t2 > 0 then
-        t = math.min(t1, t2)
-    elseif t1 > 0 then
-        t = t1
-    elseif t2 > 0 then
-        t = t2
-    else
-        return nil
-    end
+    if t1 > 0 and t2 > 0 then t = math.min(t1, t2)
+    elseif t1 > 0 then t = t1
+    elseif t2 > 0 then t = t2
+    else return nil end
     
-    if t > 4.5 then
-        return nil
-    end
-    
+    if t > 4.5 then return nil end
     return targetPos + (v * t), t
 end
 
 local function IsTeammate(player)
     if player == LocalPlayer then return true end
-    if player.Team and LocalPlayer.Team then
-        if player.Team == LocalPlayer.Team then return true end
-    end
-    if player.TeamColor and LocalPlayer.TeamColor then
-        if player.TeamColor == LocalPlayer.TeamColor then return true end
-    end
+    if player.Team and LocalPlayer.Team and player.Team == LocalPlayer.Team then return true end
+    if player.TeamColor and LocalPlayer.TeamColor and player.TeamColor == LocalPlayer.TeamColor then return true end
     return false
 end
 
@@ -243,15 +229,11 @@ local function GetClosestPlayer()
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             local targetHumanoid = player.Character:FindFirstChildOfClass("Humanoid")
-            if targetHumanoid and targetHumanoid.Health > 0 then
-                
-                if IsTeammate(player) then continue end
-                
+            if targetHumanoid and targetHumanoid.Health > 0 and not IsTeammate(player) then
                 local hitPart = player.Character:FindFirstChild(Settings.TargetPart) or player.Character:FindFirstChild("HumanoidRootPart")
                 local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
                 if hitPart and rootPart then
                     local targetVel = rootPart.AssemblyLinearVelocity or rootPart.Velocity or Vector3.new(0,0,0)
-                    
                     local predictedPos, interceptTime = GetInterceptPosition(MyPos, hitPart.Position, targetVel, Settings.BulletSpeed)
                     
                     if predictedPos and interceptTime then
@@ -265,7 +247,6 @@ local function GetClosestPlayer()
                                         local Parts = Camera:GetPartsObscuringTarget({predictedPos}, {LocalPlayer.Character, player.Character})
                                         if #Parts > 0 then continue end
                                     end
-                                    
                                     MaximumDistance = Distance
                                     TargetPlayer = player
                                     BestPredictedPos = predictedPos
@@ -282,7 +263,7 @@ end
 
 local SystemLogEvent = function(msg) end
 
---// Render Loop with Bullet Intercept Validation & Smooth Damping
+--// Render Loop
 RunService:BindToRenderStep("AimLockCameraUpdate", Enum.RenderPriority.Camera.Value + 1, function(deltaTime)
     pcall(function()
         deltaTime = deltaTime or 0.016 
@@ -332,26 +313,24 @@ RunService:BindToRenderStep("AimLockCameraUpdate", Enum.RenderPriority.Camera.Va
             
             if Target and Target.Character and Target.Character:FindFirstChild("HumanoidRootPart") then
                 local targetHum = Target.Character:FindFirstChildOfClass("Humanoid")
-                if targetHum and targetHum.Health > 0 then
-                    if not IsTeammate(Target) then
-                        local hitPart = Target.Character:FindFirstChild(Settings.TargetPart) or Target.Character:FindFirstChild("HumanoidRootPart")
-                        local rootPart = Target.Character:FindFirstChild("HumanoidRootPart")
+                if targetHum and targetHum.Health > 0 and not IsTeammate(Target) then
+                    local hitPart = Target.Character:FindFirstChild(Settings.TargetPart) or Target.Character:FindFirstChild("HumanoidRootPart")
+                    local rootPart = Target.Character:FindFirstChild("HumanoidRootPart")
+                    
+                    if hitPart and rootPart then
+                        local targetVel = rootPart.AssemblyLinearVelocity or rootPart.Velocity or Vector3.new(0,0,0)
+                        local validPos, interceptTime = GetInterceptPosition(myRoot.Position, hitPart.Position, targetVel, Settings.BulletSpeed)
                         
-                        if hitPart and rootPart then
-                            local targetVel = rootPart.AssemblyLinearVelocity or rootPart.Velocity or Vector3.new(0,0,0)
-                            local validPos, interceptTime = GetInterceptPosition(myRoot.Position, hitPart.Position, targetVel, Settings.BulletSpeed)
+                        if validPos and interceptTime then
+                            predictedPosition = validPos
+                            local screenPos, onScreen = Camera:WorldToViewportPoint(predictedPosition)
+                            local mousePos = UserInputService:GetMouseLocation()
+                            local distanceFromMouse = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                            local dist3D = (predictedPosition - myRoot.Position).Magnitude
                             
-                            if validPos and interceptTime then
-                                predictedPosition = validPos
-                                local screenPos, onScreen = Camera:WorldToViewportPoint(predictedPosition)
-                                local mousePos = UserInputService:GetMouseLocation()
-                                local distanceFromMouse = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                                local dist3D = (predictedPosition - myRoot.Position).Magnitude
-                                
-                                if onScreen and distanceFromMouse <= (Settings.FOVRadius * 1.8) and dist3D <= Settings.MaxDistance then
-                                    if not Settings.WallCheck or #Camera:GetPartsObscuringTarget({predictedPosition}, {myChar, Target.Character}) == 0 then
-                                        isTargetValid = true
-                                    end
+                            if onScreen and distanceFromMouse <= (Settings.FOVRadius * 1.8) and dist3D <= Settings.MaxDistance then
+                                if not Settings.WallCheck or #Camera:GetPartsObscuringTarget({predictedPosition}, {myChar, Target.Character}) == 0 then
+                                    isTargetValid = true
                                 end
                             end
                         end
@@ -428,7 +407,7 @@ RunService:BindToRenderStep("AimLockCameraUpdate", Enum.RenderPriority.Camera.Va
     end)
 end)
 
---// UI Allocation Elements
+--// UI Allocation Elements & Interface Setup
 local MainMenuUI = nil
 local ShortcutList = nil
 
@@ -483,7 +462,6 @@ SafeConnect(UserInputService.InputBegan, function(input, processed)
     end
 end)
 
---// Structural Premium Interface Generation Layer
 local ScreenGui = Instance.new("ScreenGui", ParentGui)
 ScreenGui.Name = CurrentScriptID
 ScreenGui.ResetOnSpawn = false
@@ -621,7 +599,6 @@ DevName.Font = Enum.Font.GothamSemibold
 DevName.TextSize = 11
 DevName.TextColor3 = Styles.TextDark
 DevName.TextXAlignment = Enum.TextXAlignment.Left
-DevName.TextTruncate = Enum.TextTruncate.AtEnd
 
 local ActiveDotLabel = Instance.new("TextLabel", ProfileContainer)
 ActiveDotLabel.Size = UDim2.new(0.65, 0, 0, 14)
@@ -1017,7 +994,6 @@ local function AddDashboardSlider(parentPage, configKey, displayTitle, min, max,
         local rounded = (max >= 10 and max <= 3000) and math.floor(currentVal) or math.floor(currentVal * 100) / 100
         
         ValLabel.Text = tostring(rounded)
-        
         Settings[configKey] = currentVal
         if customCallback then customCallback(currentVal) end
 
@@ -1059,6 +1035,7 @@ local function AddDashboardSlider(parentPage, configKey, displayTitle, min, max,
     end)
 end
 
+-- Dashboard Elements Initialization
 AddDashboardButton(AimPage, "Enabled", "System Master Processing", "★ Optimal Placement: Core Hub Active On Screen", "Enables global calculation thread loops across physics steps.")
 AddDashboardButton(AimPage, "WallCheck", "Raycast Wall Protection", "★ Optimal Placement: Critical Layer Protection", "Prevents engine cross-snapping onto targets located behind solid structures.")
 AddDashboardButton(AimPage, "AutoShoot", "Auto-Trigger Mechanism", "★ Optimal Placement: Micro-Weapons Testing Engine", "Automatically handles tool activation parameters during tracking.")
@@ -1230,7 +1207,7 @@ HookButtonAnimations(KillEngineBtn, Color3.fromRGB(45, 20, 25), Color3.fromRGB(6
 
 KillEngineBtn.MouseButton1Click:Connect(CinematicClose)
 
---// PREMIUM DETACHED DISCORD PROMPT ENGINE MODULE 
+--// Discord Modal Prompt
 local DiscordModal = Instance.new("Frame", MainFrame)
 DiscordModal.Name = "DiscordLauncherPrompt"
 DiscordModal.AnchorPoint = Vector2.new(0.5, 0.5) 
@@ -1364,3 +1341,4 @@ end
 
 ActionCopyBtn.MouseButton1Click:Connect(function() FinalizeLauncherSequence(true) end)
 ActionDismissBtn.MouseButton1Click:Connect(function() FinalizeLauncherSequence(false) end)
+DirectInviteBadge.MouseButton1Click:Connect(function() FinalizeLauncherSequence(true) end)
