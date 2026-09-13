@@ -1,4 +1,4 @@
-=--// Cross-Script Hot-Reload State Transfer Engine
+--// Cross-Script Hot-Reload State Transfer Engine
 local CurrentScriptID = "AimHub_Engine_v40"
 local env = (getgenv and getgenv()) or shared
 local SavedState = nil
@@ -219,6 +219,17 @@ local function GetInterceptPosition(shooterPos, targetPos, targetVel, bulletSpee
     return targetPos + (v * t), t
 end
 
+local function IsTeammate(player)
+    if player == LocalPlayer then return true end
+    if player.Team and LocalPlayer.Team then
+        if player.Team == LocalPlayer.Team then return true end
+    end
+    if player.TeamColor and LocalPlayer.TeamColor then
+        if player.TeamColor == LocalPlayer.TeamColor then return true end
+    end
+    return false
+end
+
 local function GetClosestPlayer()
     local MaximumDistance = Settings.MaxDistance
     local TargetPlayer = nil
@@ -234,9 +245,7 @@ local function GetClosestPlayer()
             local targetHumanoid = player.Character:FindFirstChildOfClass("Humanoid")
             if targetHumanoid and targetHumanoid.Health > 0 then
                 
-                if player.Team ~= nil and LocalPlayer.Team ~= nil then
-                    if player.Team == LocalPlayer.Team or player.TeamColor == LocalPlayer.TeamColor then continue end
-                end
+                if IsTeammate(player) then continue end
                 
                 local hitPart = player.Character:FindFirstChild(Settings.TargetPart) or player.Character:FindFirstChild("HumanoidRootPart")
                 local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
@@ -297,7 +306,7 @@ RunService:BindToRenderStep("AimLockCameraUpdate", Enum.RenderPriority.Camera.Va
                 local highlight = player.Character:FindFirstChild("TestESP_Highlight")
                 local hum = player.Character:FindFirstChildOfClass("Humanoid")
                 
-                if Settings.Enabled and Settings.ESPEnabled and hum and hum.Health > 0 and not (player.Team ~= nil and LocalPlayer.Team ~= nil and (player.Team == LocalPlayer.Team or player.TeamColor == LocalPlayer.TeamColor)) then
+                if Settings.Enabled and Settings.ESPEnabled and hum and hum.Health > 0 and not IsTeammate(player) then
                     if not highlight then
                         highlight = Instance.new("Highlight")
                         highlight.Name = "TestESP_Highlight"
@@ -324,7 +333,7 @@ RunService:BindToRenderStep("AimLockCameraUpdate", Enum.RenderPriority.Camera.Va
             if Target and Target.Character and Target.Character:FindFirstChild("HumanoidRootPart") then
                 local targetHum = Target.Character:FindFirstChildOfClass("Humanoid")
                 if targetHum and targetHum.Health > 0 then
-                    if not (Target.Team ~= nil and LocalPlayer.Team ~= nil and (Target.Team == LocalPlayer.Team or Target.TeamColor == LocalPlayer.TeamColor)) then
+                    if not IsTeammate(Target) then
                         local hitPart = Target.Character:FindFirstChild(Settings.TargetPart) or Target.Character:FindFirstChild("HumanoidRootPart")
                         local rootPart = Target.Character:FindFirstChild("HumanoidRootPart")
                         
