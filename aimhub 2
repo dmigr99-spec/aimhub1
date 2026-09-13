@@ -1,10 +1,12 @@
 --// Cross-Script Hot-Reload State Transfer Engine
-local CurrentScriptID = "Ligia_Premium_Engine_v39"
+local CurrentScriptID = "AimHub_Engine_v40"
 local env = (getgenv and getgenv()) or shared
 local SavedState = nil
 
 if env[CurrentScriptID] then
-    pcall(env[CurrentScriptID])
+    if type(env[CurrentScriptID]) == "function" then
+        pcall(env[CurrentScriptID])
+    end
     env[CurrentScriptID] = nil
     if env[CurrentScriptID .. "_DataPacket"] then
         SavedState = env[CurrentScriptID .. "_DataPacket"]
@@ -27,25 +29,30 @@ local LegacyIDs = {
     "Ligia_Premium_Engine_v29", "Ligia_Premium_Engine_v30", "Ligia_Premium_Engine_v31",
     "Ligia_Premium_Engine_v32", "Ligia_Premium_Engine_v33", "Ligia_Premium_Engine_v34",
     "Ligia_Premium_Engine_v35", "Ligia_Premium_Engine_v36", "Ligia_Premium_Engine_v37",
-    "Ligia_Premium_Engine_v38"
+    "Ligia_Premium_Engine_v38", "Ligia_Premium_Engine_v39", "AimHub_Engine_v40"
 }
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+
+repeat task.wait() until Players.LocalPlayer
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local ParentGui = (gethui and gethui()) or (game:GetService("CoreGui")) or LocalPlayer:WaitForChild("PlayerGui")
 
 pcall(function() RunService:UnbindFromRenderStep("AimLockCameraUpdate") end)
 for _, id in ipairs(LegacyIDs) do
-    if env[id] then pcall(env[id]) env[id] = nil end
-    local oldGui = PlayerGui:FindFirstChild(id)
+    if env[id] then 
+        if type(env[id]) == "function" then pcall(env[id]) end
+        env[id] = nil 
+    end
+    local oldGui = ParentGui:FindFirstChild(id) or (LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild(id))
     if oldGui then pcall(function() oldGui:Destroy() end) end
 end
 
---// Premium Advanced Configuration Matrix (Centaura Ballistics Ready)
+--// Premium Advanced Configuration Matrix
 local Settings = {
     Enabled = true,
     WallCheck = true,
@@ -58,7 +65,7 @@ local Settings = {
     ShootMode = "Normal", 
     Smoothness = 12,      
     FOVRadius = 130,
-    BulletSpeed = 1200,   -- Centaura projectile velocity simulation benchmark
+    BulletSpeed = 1200,   -- Universal projectile velocity simulation benchmark
     ESPTransparency = 0.4,
     MaxDistance = 1500,
     AimKey = Enum.KeyCode.E,
@@ -117,25 +124,30 @@ local function TweenObj(obj, goal, duration, style, dir)
     return tween
 end
 
---// Drawing Vector FOV Crosshair & Target Indicator Framework
-local FOVCircle = Drawing.new("Circle")
-FOVCircle.Color = Styles.Accent
-FOVCircle.Thickness = 1.5
-FOVCircle.NumSides = 64
-FOVCircle.Filled = false
+--// Drawing Vector FOV Crosshair & Target Indicator Framework (Safe Initialization)
+local FOVCircle, TargetDot
+if Drawing and Drawing.new then
+    pcall(function()
+        FOVCircle = Drawing.new("Circle")
+        FOVCircle.Color = Styles.Accent
+        FOVCircle.Thickness = 1.5
+        FOVCircle.NumSides = 64
+        FOVCircle.Filled = false
 
-local TargetDot = Drawing.new("Circle")
-TargetDot.Color = Styles.Accent
-TargetDot.Thickness = 1
-TargetDot.Filled = true
-TargetDot.Radius = 4
-TargetDot.Visible = false
-TargetDot.ZIndex = 2
+        TargetDot = Drawing.new("Circle")
+        TargetDot.Color = Styles.Accent
+        TargetDot.Thickness = 1
+        TargetDot.Filled = true
+        TargetDot.Radius = 4
+        TargetDot.Visible = false
+        TargetDot.ZIndex = 2
+    end)
+end
 
 local function WispAllESPRemnants()
     for _, p in ipairs(Players:GetPlayers()) do
         if p.Character then
-            local folder = p.Character:FindFirstChild("Ligia_Premium_ESP")
+            local folder = p.Character:FindFirstChild("AimHub_ESP")
             if folder then pcall(function() folder:Destroy() end) end
             local oldEsp = p.Character:FindFirstChild("TestESP_Highlight")
             if oldEsp then pcall(function() oldEsp:Destroy() end) end
@@ -155,19 +167,23 @@ end
 
 local function UniversalDestruct()
     pcall(function() RunService:UnbindFromRenderStep("AimLockCameraUpdate") end)
-    for _, con in ipairs(GlobalConnections) do if con and con.Disconnect then pcall(function() con:Disconnect() end) end end
+    for _, con in ipairs(GlobalConnections) do 
+        if con and typeof(con) == "RBXScriptConnection" and con.Connected then 
+            pcall(function() con:Disconnect() end) 
+        end 
+    end
     ControlClick(false)
-    pcall(function() FOVCircle:Remove() end)
-    pcall(function() TargetDot:Remove() end)
+    if FOVCircle then pcall(function() if FOVCircle.Destroy then FOVCircle:Destroy() else FOVCircle:Remove() end end) end
+    if TargetDot then pcall(function() if TargetDot.Destroy then TargetDot:Destroy() else TargetDot:Remove() end end) end
     pcall(function()
-        local OldGui = PlayerGui:FindFirstChild(CurrentScriptID)
+        local OldGui = ParentGui:FindFirstChild(CurrentScriptID)
         if OldGui then OldGui:Destroy() end
     end)
     WispAllESPRemnants()
 end
 env[CurrentScriptID] = UniversalDestruct 
 
---// Accurate Analytic Quadratic Bullet Intercept Solver (Centaura Ballistics Engine)
+--// Accurate Analytic Quadratic Bullet Intercept Solver (Universal Ballistics Engine)
 local function GetInterceptPosition(shooterPos, targetPos, targetVel, bulletSpeed)
     local r = targetPos - shooterPos
     local v = targetVel
@@ -178,7 +194,7 @@ local function GetInterceptPosition(shooterPos, targetPos, targetVel, bulletSpee
     
     local discriminant = (b * b) - (4 * a * c)
     if discriminant < 0 then
-        return nil -- Target cannot be hit (trajectory divergence)
+        return nil
     end
     
     local sqrtDisc = math.sqrt(discriminant)
@@ -193,10 +209,10 @@ local function GetInterceptPosition(shooterPos, targetPos, targetVel, bulletSpee
     elseif t2 > 0 then
         t = t2
     else
-        return nil -- Intercept time is negative (target moving away uncatchably)
+        return nil
     end
     
-    if t > 4.5 then -- Limit maximum prediction horizon to avoid impossible long-range locks
+    if t > 4.5 then
         return nil
     end
     
@@ -211,6 +227,7 @@ local function GetClosestPlayer()
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return nil, nil end
     local MyPos = LocalPlayer.Character.HumanoidRootPart.Position
     local MousePos = UserInputService:GetMouseLocation()
+    Camera = workspace.CurrentCamera
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -224,9 +241,8 @@ local function GetClosestPlayer()
                 local hitPart = player.Character:FindFirstChild(Settings.TargetPart) or player.Character:FindFirstChild("HumanoidRootPart")
                 local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
                 if hitPart and rootPart then
-                    local targetVel = rootPart.AssemblyLinearVelocity or Vector3.new(0,0,0)
+                    local targetVel = rootPart.AssemblyLinearVelocity or rootPart.Velocity or Vector3.new(0,0,0)
                     
-                    -- Calculate if the bullet will genuinely intercept this target
                     local predictedPos, interceptTime = GetInterceptPosition(MyPos, hitPart.Position, targetVel, Settings.BulletSpeed)
                     
                     if predictedPos and interceptTime then
@@ -261,17 +277,20 @@ local SystemLogEvent = function(msg) end
 RunService:BindToRenderStep("AimLockCameraUpdate", Enum.RenderPriority.Camera.Value + 1, function(deltaTime)
     pcall(function()
         deltaTime = deltaTime or 0.016 
+        Camera = workspace.CurrentCamera
 
-        FOVCircle.Position = UserInputService:GetMouseLocation()
-        if Settings.Enabled and Aiming and Settings.FOVPulse then
-            local pulseOffset = math.sin(tick() * 6) * (Settings.FOVRadius * 0.06)
-            FOVCircle.Radius = Settings.FOVRadius + pulseOffset
-            FOVCircle.Transparency = 0.5 + (math.sin(tick() * 6) * 0.5)
-        else
-            FOVCircle.Radius = Settings.FOVRadius
-            FOVCircle.Transparency = 1
+        if FOVCircle then
+            FOVCircle.Position = UserInputService:GetMouseLocation()
+            if Settings.Enabled and Aiming and Settings.FOVPulse then
+                local pulseOffset = math.sin(tick() * 6) * (Settings.FOVRadius * 0.06)
+                FOVCircle.Radius = Settings.FOVRadius + pulseOffset
+                FOVCircle.Transparency = 0.5 + (math.sin(tick() * 6) * 0.5)
+            else
+                FOVCircle.Radius = Settings.FOVRadius
+                FOVCircle.Transparency = 1
+            end
+            FOVCircle.Visible = Settings.Enabled and Settings.ShowFOV
         end
-        FOVCircle.Visible = Settings.Enabled and Settings.ShowFOV
         
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -295,7 +314,10 @@ RunService:BindToRenderStep("AimLockCameraUpdate", Enum.RenderPriority.Camera.Va
             end
         end
         
-        if Settings.Enabled and Aiming then
+        local myChar = LocalPlayer.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+
+        if Settings.Enabled and Aiming and myRoot then
             local isTargetValid = false
             local predictedPosition = nil
             
@@ -307,19 +329,18 @@ RunService:BindToRenderStep("AimLockCameraUpdate", Enum.RenderPriority.Camera.Va
                         local rootPart = Target.Character:FindFirstChild("HumanoidRootPart")
                         
                         if hitPart and rootPart then
-                            local targetVel = rootPart.AssemblyLinearVelocity or Vector3.new(0,0,0)
-                            local validPos, interceptTime = GetInterceptPosition(LocalPlayer.Character.HumanoidRootPart.Position, hitPart.Position, targetVel, Settings.BulletSpeed)
+                            local targetVel = rootPart.AssemblyLinearVelocity or rootPart.Velocity or Vector3.new(0,0,0)
+                            local validPos, interceptTime = GetInterceptPosition(myRoot.Position, hitPart.Position, targetVel, Settings.BulletSpeed)
                             
                             if validPos and interceptTime then
                                 predictedPosition = validPos
                                 local screenPos, onScreen = Camera:WorldToViewportPoint(predictedPosition)
                                 local mousePos = UserInputService:GetMouseLocation()
                                 local distanceFromMouse = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                                local dist3D = (predictedPosition - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+                                local dist3D = (predictedPosition - myRoot.Position).Magnitude
                                 
-                                -- Target Stickiness Check (Leeway multiplier to prevent jittery dropping)
                                 if onScreen and distanceFromMouse <= (Settings.FOVRadius * 1.8) and dist3D <= Settings.MaxDistance then
-                                    if not Settings.WallCheck or #Camera:GetPartsObscuringTarget({predictedPosition}, {LocalPlayer.Character, Target.Character}) == 0 then
+                                    if not Settings.WallCheck or #Camera:GetPartsObscuringTarget({predictedPosition}, {myChar, Target.Character}) == 0 then
                                         isTargetValid = true
                                     end
                                 end
@@ -332,24 +353,24 @@ RunService:BindToRenderStep("AimLockCameraUpdate", Enum.RenderPriority.Camera.Va
             if not isTargetValid then 
                 Target, predictedPosition = GetClosestPlayer()
             else
-                -- Re-verify intercept calculation for currently locked target
                 local hitPart = Target.Character:FindFirstChild(Settings.TargetPart) or Target.Character:FindFirstChild("HumanoidRootPart")
                 local rootPart = Target.Character:FindFirstChild("HumanoidRootPart")
                 if hitPart and rootPart then
-                    predictedPosition = GetInterceptPosition(LocalPlayer.Character.HumanoidRootPart.Position, hitPart.Position, rootPart.AssemblyLinearVelocity, Settings.BulletSpeed)
+                    local targetVel = rootPart.AssemblyLinearVelocity or rootPart.Velocity or Vector3.new(0,0,0)
+                    predictedPosition = GetInterceptPosition(myRoot.Position, hitPart.Position, targetVel, Settings.BulletSpeed)
                 end
             end
             
             if Target and Target.Character and predictedPosition then
                 local HitPart = Target.Character:FindFirstChild(Settings.TargetPart) or Target.Character:FindFirstChild("HumanoidRootPart")
                 if HitPart then
-                    if Settings.TargetIndicator then
+                    if Settings.TargetIndicator and TargetDot then
                         local pos, onScreen = Camera:WorldToViewportPoint(predictedPosition)
                         if onScreen then
                             TargetDot.Position = Vector2.new(pos.X, pos.Y)
                             TargetDot.Visible = true
                         else TargetDot.Visible = false end
-                    else TargetDot.Visible = false end
+                    elseif TargetDot then TargetDot.Visible = false end
 
                     if Target ~= LastLoggedTarget then
                         SystemLogEvent("Intercept Lock Acquired: " .. Target.DisplayName)
@@ -367,16 +388,6 @@ RunService:BindToRenderStep("AimLockCameraUpdate", Enum.RenderPriority.Camera.Va
                     local rawSmoothness = math.clamp(Settings.Smoothness / 100, 0.001, 1)
                     local fpsAdjustedAlpha = 1 - math.pow(1 - rawSmoothness, deltaTime * 60)
                     Camera.CFrame = Camera.CFrame:Lerp(TargetLook, fpsAdjustedAlpha)
-                    
-                    if mousemoverel then
-                        local screenPos, onScreen = Camera:WorldToViewportPoint(predictedPosition)
-                        if onScreen then
-                            local mousePos = UserInputService:GetMouseLocation()
-                            local deltaX = (screenPos.X - mousePos.X) * 0.4
-                            local deltaY = (screenPos.Y - mousePos.Y) * 0.4
-                            mousemoverel(deltaX, deltaY)
-                        end
-                    end
 
                     if Settings.AutoShoot and not IsShooting then
                         IsShooting = true
@@ -396,12 +407,12 @@ RunService:BindToRenderStep("AimLockCameraUpdate", Enum.RenderPriority.Camera.Va
                 end
             else
                 Target = nil
-                TargetDot.Visible = false
+                if TargetDot then TargetDot.Visible = false end
                 if IsShooting then IsShooting = false ControlClick(false) end
             end
         else
             Target = nil
-            TargetDot.Visible = false
+            if TargetDot then TargetDot.Visible = false end
             LastLoggedTarget = nil
             if IsShooting then IsShooting = false ControlClick(false) end
         end
@@ -464,7 +475,7 @@ SafeConnect(UserInputService.InputBegan, function(input, processed)
 end)
 
 --// Structural Premium Interface Generation Layer
-local ScreenGui = Instance.new("ScreenGui", PlayerGui)
+local ScreenGui = Instance.new("ScreenGui", ParentGui)
 ScreenGui.Name = CurrentScriptID
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -589,7 +600,7 @@ DummyAvatar.Size = UDim2.new(0, 34, 0, 34)
 DummyAvatar.Position = UDim2.new(0.08, 0, 0.5, -17)
 DummyAvatar.BackgroundColor3 = Color3.fromRGB(35, 36, 45)
 DummyAvatar.BorderSizePixel = 0
-DummyAvatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. LocalPlayer.UserId .. "&w=150&h=150"
+DummyAvatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. (LocalPlayer.UserId or 1) .. "&w=150&h=150"
 Instance.new("UICorner", DummyAvatar).CornerRadius = UDim.new(1, 0)
 
 local DevName = Instance.new("TextLabel", ProfileContainer)
@@ -658,7 +669,7 @@ SystemStatusBtn.Size = UDim2.new(0.84, 0, 0, 32)
 SystemStatusBtn.Position = UDim2.new(0.08, 0, 1, -38)
 SystemStatusBtn.BackgroundColor3 = Styles.Accent
 SystemStatusBtn.Font = Enum.Font.GothamBold
-SystemStatusBtn.Text = "CENTAURA BALLISTICS"
+SystemStatusBtn.Text = "BALLISTICS ENGINE"
 SystemStatusBtn.TextColor3 = Color3.fromRGB(12, 15, 13)
 SystemStatusBtn.TextSize = 10
 SystemStatusBtn.BorderSizePixel = 0
@@ -785,7 +796,7 @@ SystemLogEvent = function(msg)
         LogPage.CanvasPosition = Vector2.new(0, container.AbsoluteContentSize.Y + 100)
     end
 end
-SystemLogEvent("Centaura Ballistics Engine Initialized.")
+SystemLogEvent("Ballistics Engine Initialized.")
 
 Tabs["Aim Lock"].Page.Visible = true
 Tabs["Aim Lock"].Btn.TextColor3 = Styles.TextMain
@@ -934,7 +945,7 @@ local function AddDashboardSlider(parentPage, configKey, displayTitle, min, max,
     ValLabel.Size = UDim2.new(0.2, 0, 0, 16)
     ValLabel.Position = UDim2.new(0.97, -40, 0.06, 0)
     ValLabel.BackgroundTransparency = 1
-    ValLabel.Text = (max == 100 or max == 5000 or max == 3000) and tostring(math.floor(initial)) or tostring(initial)
+    ValLabel.Text = (max >= 10 and max <= 3000) and tostring(math.floor(initial)) or tostring(initial)
     ValLabel.Font = Enum.Font.GothamBold
     ValLabel.TextSize = 11
     ValLabel.TextColor3 = Styles.Accent
@@ -994,10 +1005,9 @@ local function AddDashboardSlider(parentPage, configKey, displayTitle, min, max,
     local function UpdateValue(rawPercentage, animate)
         local percentage = math.clamp(rawPercentage, 0, 1)
         local currentVal = min + (percentage * (max - min))
-        local rounded = (max == 100 or max == 5000 or max == 3000 or max == 5) and math.floor(currentVal) or math.floor(currentVal * 100) / 100
+        local rounded = (max >= 10 and max <= 3000) and math.floor(currentVal) or math.floor(currentVal * 100) / 100
         
-        if max == 100 then ValLabel.Text = tostring(rounded / 100)
-        else ValLabel.Text = tostring(rounded) end
+        ValLabel.Text = tostring(rounded)
         
         Settings[configKey] = currentVal
         if customCallback then customCallback(currentVal) end
@@ -1047,7 +1057,7 @@ AddDashboardButton(AimPage, "TargetIndicator", "Draw Target Indicator", "★ Aim
 AddDashboardButton(AimPage, "FOVPulse", "FOV Pulse Animation", "★ Aimbot Customization: Action Feedback Response", "Pulses the main threat boundary ring smoothly when target acquisition is active.")
 
 AddDashboardSlider(AimPage, "Smoothness", "Tracking Camera Smoothness", 1, 100, "★ Optimal Placement: Low-Medium (Natural Damping)", "Alters tracking dampening alignment latency to emulate natural aim.")
-AddDashboardSlider(AimPage, "BulletSpeed", "Projectile Speed (Centaura)", 200, 3000, "★ Ballistic Setting: Bullet Velocity Studs/Sec (1200)", "Defines projectile speed for true analytic quadratic target interception math.")
+AddDashboardSlider(AimPage, "BulletSpeed", "Projectile Speed", 200, 3000, "★ Ballistic Setting: Bullet Velocity Studs/Sec (1200)", "Defines projectile speed for true analytic quadratic target interception math.")
 AddDashboardSlider(AimPage, "MaxDistance", "Target Maximum Distance", 50, 3000, "★ Optimal Placement: Safe Render Limit (1500)", "Calculates the ultimate cut-off barrier stud threshold for lock acquisition.")
 
 AddDashboardButton(VisPage, "ESPEnabled", "Highlight Player ESP Outlines", "★ Optimal Placement: Traditional Outline Overlay Engine", "Renders precise direct screen boundary overlays on top of live enemies.")
@@ -1099,8 +1109,8 @@ CycleColorBtn.MouseButton1Click:Connect(function()
     local currentAccent = AccentPresets[Settings.AccentColorIndex]
     
     Styles.Accent = currentAccent
-    FOVCircle.Color = currentAccent
-    TargetDot.Color = currentAccent
+    if FOVCircle then FOVCircle.Color = currentAccent end
+    if TargetDot then TargetDot.Color = currentAccent end
     TweenObj(CycleStroke, { Color = currentAccent }, 0.25)
     TweenObj(SystemStatusBtn, { BackgroundColor3 = currentAccent }, 0.25)
     TweenObj(ActiveDotLabel, { TextColor3 = currentAccent }, 0.25)
@@ -1162,8 +1172,8 @@ ResetConfigBtn.MouseButton1Click:Connect(function()
     
     local currentAccent = AccentPresets[Settings.AccentColorIndex]
     Styles.Accent = currentAccent
-    FOVCircle.Color = currentAccent
-    TargetDot.Color = currentAccent
+    if FOVCircle then FOVCircle.Color = currentAccent end
+    if TargetDot then TargetDot.Color = currentAccent end
     TweenObj(CycleStroke, { Color = currentAccent }, 0.25)
     TweenObj(SystemStatusBtn, { BackgroundColor3 = currentAccent }, 0.25)
     TweenObj(ActiveDotLabel, { TextColor3 = currentAccent }, 0.25)
