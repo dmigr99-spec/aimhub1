@@ -1,6 +1,17 @@
 --// Cross-Script Hot-Reload State Transfer Engine
 local CurrentScriptID = "AimHub_Engine_v40"
-local env = (getgenv and getgenv()) or shared
+local DiscordProfileURL = "https://discord.com/users/1344951028516257835"
+local DiscordInviteURL = "https://discord.gg/8jSF8vSvbJ"
+local function resolveGlobalEnv()
+    if type(getgenv) == "function" then
+        local ok, value = pcall(getgenv)
+        if ok and type(value) == "table" then return value end
+    end
+    if type(shared) == "table" then return shared end
+    return {}
+end
+
+local env = resolveGlobalEnv()
 local SavedState = nil
 
 if env[CurrentScriptID] then
@@ -8,10 +19,10 @@ if env[CurrentScriptID] then
         pcall(env[CurrentScriptID])
     end
     env[CurrentScriptID] = nil
-    if env[CurrentScriptID .. "_DataPacket"] then
-        SavedState = env[CurrentScriptID .. "_DataPacket"]
-        env[CurrentScriptID .. "_DataPacket"] = nil
-    end
+end
+if env[CurrentScriptID .. "_DataPacket"] then
+    SavedState = env[CurrentScriptID .. "_DataPacket"]
+    env[CurrentScriptID .. "_DataPacket"] = nil
 end
 
 --// Universal Legacy Nuke Block
@@ -36,11 +47,29 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
 
 repeat task.wait() until Players.LocalPlayer
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-local ParentGui = (gethui and gethui()) or (game:GetService("CoreGui")) or LocalPlayer:WaitForChild("PlayerGui")
+local function resolveParentGui()
+    if type(gethui) == "function" then
+        local ok, gui = pcall(gethui)
+        if ok and gui then return gui end
+    end
+
+    local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui") or LocalPlayer:WaitForChild("PlayerGui")
+    if playerGui then return playerGui end
+
+    local ok, coreGui = pcall(function()
+        return game:GetService("CoreGui")
+    end)
+    if ok and coreGui then return coreGui end
+
+    return LocalPlayer
+end
+
+local ParentGui = resolveParentGui()
 
 pcall(function() RunService:UnbindFromRenderStep("AimLockCameraUpdate") end)
 for _, id in ipairs(LegacyIDs) do
@@ -78,6 +107,53 @@ local Settings = {
 local DefaultSettings = {}
 for k, v in pairs(Settings) do DefaultSettings[k] = v end
 local UIUpdaters = {} 
+
+local ConfigFileName = CurrentScriptID .. "_settings.json"
+local function serializableSettings()
+    local result = {}
+    for key, value in pairs(Settings) do
+        local valueType = typeof(value)
+        if valueType == "boolean" or valueType == "number" or valueType == "string" then
+            result[key] = value
+        end
+    end
+    return result
+end
+
+local function applySavedSettings(values)
+    if type(values) ~= "table" then return end
+    for key, value in pairs(values) do
+        if Settings[key] ~= nil and typeof(value) == typeof(Settings[key]) then
+            Settings[key] = value
+        end
+    end
+end
+
+local function loadFileSettings()
+    if type(isfile) ~= "function" or type(readfile) ~= "function" then return nil end
+    local exists = false
+    local okExists, valueExists = pcall(isfile, ConfigFileName)
+    if okExists then exists = valueExists end
+    if not exists then return nil end
+
+    local okRead, raw = pcall(readfile, ConfigFileName)
+    if not okRead or type(raw) ~= "string" then return nil end
+    local okDecode, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
+    if okDecode then return decoded end
+    return nil
+end
+
+applySavedSettings(SavedState or loadFileSettings())
+
+local function saveFileSettings()
+    if type(writefile) ~= "function" then return false end
+    local okEncode, raw = pcall(function()
+        return HttpService:JSONEncode(serializableSettings())
+    end)
+    if not okEncode then return false end
+    local okWrite = pcall(writefile, ConfigFileName, raw)
+    return okWrite
+end
 
 local Aiming = false
 local Target = nil
@@ -157,11 +233,24 @@ end
 
 local function ControlClick(press)
     if press then
-        if mouse1press then mouse1press() 
-        elseif LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool") then LocalPlayer.Character:FindFirstChildOfClass("Tool"):Activate() end
+        if type(mouse1press) == "function" then
+            if pcall(mouse1press) then return end
+        end
+        local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+        if tool then pcall(function() tool:Activate() end) end
     else
-        if mouse1release then mouse1release() 
-        elseif LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool") then LocalPlayer.Character:FindFirstChildOfClass("Tool"):Deactivate() end
+        if type(mouse1release) == "function" then
+            if pcall(mouse1release) then return end
+        end
+        local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+        if tool then pcall(function() tool:Deactivate() end) end
+    end
+end
+
+local function destroyDrawing(object)
+    if not object then return end
+    if not pcall(function() object:Remove() end) then
+        pcall(function() object:Destroy() end)
     end
 end
 
@@ -173,8 +262,8 @@ local function UniversalDestruct()
         end 
     end
     ControlClick(false)
-    if FOVCircle then pcall(function() if FOVCircle.Destroy then FOVCircle:Destroy() else FOVCircle:Remove() end end) end
-    if TargetDot then pcall(function() if TargetDot.Destroy then TargetDot:Destroy() else TargetDot:Remove() end end) end
+    destroyDrawing(FOVCircle)
+    destroyDrawing(TargetDot)
     pcall(function()
         local OldGui = ParentGui:FindFirstChild(CurrentScriptID)
         if OldGui then OldGui:Destroy() end
@@ -187,10 +276,22 @@ env[CurrentScriptID] = UniversalDestruct
 local function GetInterceptPosition(shooterPos, targetPos, targetVel, bulletSpeed)
     local r = targetPos - shooterPos
     local v = targetVel
+
+    if type(bulletSpeed) ~= "number" or bulletSpeed <= 0 then return nil end
     
     local a = v.Magnitude^2 - bulletSpeed^2
     local b = 2 * r:Dot(v)
     local c = r.Magnitude^2
+
+    if math.abs(a) < 1e-6 then
+        if math.abs(b) < 1e-6 then
+            if c <= 1e-6 then return targetPos, 0 end
+            return nil
+        end
+        local t = -c / b
+        if t <= 0 or t > 4.5 then return nil end
+        return targetPos + (v * t), t
+    end
     
     local discriminant = (b * b) - (4 * a * c)
     if discriminant < 0 then return nil end
@@ -211,9 +312,7 @@ end
 
 local function IsTeammate(player)
     if player == LocalPlayer then return true end
-    if player.Team and LocalPlayer.Team and player.Team == LocalPlayer.Team then return true end
-    if player.TeamColor and LocalPlayer.TeamColor and player.TeamColor == LocalPlayer.TeamColor then return true end
-    return false
+    return player.Team ~= nil and LocalPlayer.Team ~= nil and player.Team == LocalPlayer.Team
 end
 
 local function GetClosestPlayer()
@@ -265,7 +364,7 @@ local SystemLogEvent = function(msg) end
 
 --// Render Loop
 RunService:BindToRenderStep("AimLockCameraUpdate", Enum.RenderPriority.Camera.Value + 1, function(deltaTime)
-    pcall(function()
+    local ok, renderError = pcall(function()
         deltaTime = deltaTime or 0.016 
         Camera = workspace.CurrentCamera
 
@@ -405,6 +504,9 @@ RunService:BindToRenderStep("AimLockCameraUpdate", Enum.RenderPriority.Camera.Va
             if IsShooting then IsShooting = false ControlClick(false) end
         end
     end)
+    if not ok then
+        warn("[AimHub] render error: " .. tostring(renderError))
+    end
 end)
 
 --// UI Allocation Elements & Interface Setup
@@ -813,8 +915,9 @@ local function CinematicClose()
         BackgroundTransparency = 1 
     }, 0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In)
     closeTween.Completed:Wait()
-    env[CurrentScriptID] = nil 
-    env[CurrentScriptID .. "_DataPacket"] = nil 
+    env[CurrentScriptID .. "_DataPacket"] = serializableSettings()
+    saveFileSettings()
+    env[CurrentScriptID] = nil
     UniversalDestruct()
 end
 CloseBtn.MouseButton1Click:Connect(CinematicClose)
@@ -1133,9 +1236,10 @@ SaveStroke.Color = Styles.Accent
 HookButtonAnimations(SaveConfigBtn, Color3.fromRGB(35, 40, 50), Color3.fromRGB(45, 50, 65))
 
 SaveConfigBtn.MouseButton1Click:Connect(function()
-    TweenObj(SaveConfigBtn, { BackgroundColor3 = Color3.fromRGB(50, 200, 100) }, 0.15)
-    SaveConfigBtn.Text = "CONFIGURATION SAVED SUCCESSFULLY"
-    SystemLogEvent("Configuration Profile Saved.")
+    local saved = saveFileSettings()
+    TweenObj(SaveConfigBtn, { BackgroundColor3 = saved and Color3.fromRGB(50, 200, 100) or Color3.fromRGB(200, 150, 50) }, 0.15)
+    SaveConfigBtn.Text = saved and "CONFIGURATION SAVED" or "SESSION SETTINGS UPDATED"
+    SystemLogEvent(saved and "Configuration Profile Saved." or "File API unavailable; settings remain session-only.")
     task.wait(1.5)
     TweenObj(SaveConfigBtn, { BackgroundColor3 = Color3.fromRGB(35, 40, 50) }, 0.25)
     SaveConfigBtn.Text = "SAVE CONFIGURATION PRESETS"
@@ -1186,8 +1290,8 @@ HookButtonAnimations(CopyUserBtn, Color3.fromRGB(88, 101, 242), Color3.fromRGB(1
 
 CopyUserBtn.MouseButton1Click:Connect(function()
     pcall(function()
-        local discordUrl = "https://discord.com/users/1344951028516257835"
-        if setclipboard then setclipboard(discordUrl) elseif toclipboard then toclipboard(discordUrl) end
+        if type(setclipboard) == "function" then setclipboard(DiscordProfileURL)
+        elseif type(toclipboard) == "function" then toclipboard(DiscordProfileURL) end
         CopyUserBtn.Text = "COPIED URL TO CLIPBOARD!"
         task.wait(1.5)
         CopyUserBtn.Text = "COPY C0RROSION'S DISCORD PROFILE"
@@ -1284,7 +1388,7 @@ local LinkStringLabel = Instance.new("TextLabel", LinkFieldFrame)
 LinkStringLabel.Size = UDim2.new(1, -20, 1, 0)
 LinkStringLabel.Position = UDim2.new(0, 10, 0, 0)
 LinkStringLabel.BackgroundTransparency = 1
-LinkStringLabel.Text = "https://discord.gg/8jSF8vSvbJ"
+LinkStringLabel.Text = DiscordInviteURL
 LinkStringLabel.Font = Enum.Font.Gotham
 LinkStringLabel.TextSize = 11
 LinkStringLabel.TextColor3 = Styles.TextMain
@@ -1326,8 +1430,8 @@ HookButtonAnimations(ActionDismissBtn, Color3.fromRGB(28, 29, 38), Color3.fromRG
 local function FinalizeLauncherSequence(executeCopy)
     if executeCopy then
         pcall(function()
-            if setclipboard then setclipboard("https://discord.gg/8jSF8vSvbJ")
-            elseif toclipboard then toclipboard("https://discord.gg/8jSF8vSvbJ") end
+            if type(setclipboard) == "function" then setclipboard(DiscordInviteURL)
+            elseif type(toclipboard) == "function" then toclipboard(DiscordInviteURL) end
         end)
     end
     
