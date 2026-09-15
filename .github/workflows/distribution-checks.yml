@@ -15,12 +15,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - name: Preserve legacy public paths during migration
+      - name: Preserve exact legacy public artifacts during migration
         shell: bash
+        env:
+          EXPECTED_AIMHUB_2_BLOB: "3312b23367acd7ed3044dd564033b358c44739b6"
+          EXPECTED_AIMHUB1_BLOB: "0337693716feffb94bc5c622cef5b939c04dfeb4"
         run: |
           set -euo pipefail
           test -f "aimhub 2"
           test -f "aimhub1"
+
+          actual_aimhub_2="$(git hash-object -- "aimhub 2")"
+          actual_aimhub1="$(git hash-object -- "aimhub1")"
+
+          if [ "$actual_aimhub_2" != "$EXPECTED_AIMHUB_2_BLOB" ]; then
+            echo "Legacy path 'aimhub 2' changed during migration." >&2
+            echo "Expected: $EXPECTED_AIMHUB_2_BLOB" >&2
+            echo "Actual:   $actual_aimhub_2" >&2
+            exit 1
+          fi
+
+          if [ "$actual_aimhub1" != "$EXPECTED_AIMHUB1_BLOB" ]; then
+            echo "Legacy path 'aimhub1' changed during migration." >&2
+            echo "Expected: $EXPECTED_AIMHUB1_BLOB" >&2
+            echo "Actual:   $actual_aimhub1" >&2
+            exit 1
+          fi
 
       - name: Keep private service code out of distribution repo
         shell: bash
