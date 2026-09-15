@@ -1,12 +1,26 @@
 # AI review setup
 
-This repository is prepared for two independent pull-request reviewers:
+This repository uses two independent pull-request reviewers:
 
-- Codex: repository instructions live in `AGENTS.md`. Enable Codex Code Review for this repository in Codex/GitHub so PRs are reviewed automatically; `@codex review` can also be used on a PR.
-- Claude: repository instructions live in `CLAUDE.md`. The workflow in `.github/workflows/claude-code-review.yml` runs on non-draft pull requests and posts review findings to the PR.
+- Codex: repository review guidance is in `AGENTS.md`. Enable Codex Code Review for this repository in the Codex GitHub integration.
+- Claude: repository guidance is in `CLAUDE.md`. `.github/workflows/claude-code-review.yml` runs on non-draft pull requests.
 
-## Claude authentication required
+## GitHub authentication
 
-Before the Claude workflow can succeed, install the official Claude GitHub App for this repository and add an Actions secret named `ANTHROPIC_API_KEY` (or adapt the workflow to use `CLAUDE_CODE_OAUTH_TOKEN`).
+Claude review uses Octo STS to mint a short-lived GitHub token rather than a PAT. The trust policy is `.github/chainguard/claude-review.sts.yaml` and grants only:
 
-The workflow is intentionally review-focused and does not grant the job write access to repository contents.
+- `contents: read`
+- `pull_requests: write`
+- `issues: write`
+
+The workflow itself only receives `contents: read` and `id-token: write`; PR write permissions come from the short-lived Octo STS token.
+
+Install the Octo STS GitHub App on `dmigr99-spec/aimhub1` before running the workflow.
+
+## Anthropic authentication
+
+The workflow currently expects the repository Actions secret `ANTHROPIC_API_KEY`. Prefer Anthropic Workload Identity Federation later if your Anthropic account supports it, which removes the long-lived API secret as well.
+
+## Safety
+
+The review workflow does not grant repository-content write access. It can read code and write PR/issue review feedback only.
