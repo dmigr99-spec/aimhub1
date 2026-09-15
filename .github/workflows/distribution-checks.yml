@@ -1,0 +1,52 @@
+name: Distribution Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  distribution-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Preserve legacy public paths during migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "aimhub 2"
+          test -f "aimhub1"
+
+      - name: Keep private service code out of distribution repo
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -d services
+          test ! -d server
+          test ! -d backend
+
+      - name: Reject tracked environment files
+        shell: bash
+        run: |
+          set -euo pipefail
+          bad_files="$(git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v -E '(^|/)\.env\.example$' || true)"
+          if [ -n "$bad_files" ]; then
+            echo "Environment files do not belong in the public distribution repository:"
+            echo "$bad_files"
+            exit 1
+          fi
+
+      - name: Validate channel manifests when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          manifests=(channels/*.json)
+          for manifest in "${manifests[@]}"; do
+            python -m json.tool "$manifest" >/dev/null
+          done

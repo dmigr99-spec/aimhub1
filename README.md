@@ -1,16 +1,29 @@
-# AimHub Repository Map
+# AimHub Public Distribution
 
-This repository is the primary place for the AimHub project files.
+This repository is the public distribution surface for AimHub.
 
-## Current files
+The canonical development source lives in the private repository `dmigr99-spec/Aim-Hub`. Normal feature development, backend code, tests, and unreleased source changes should not be authored directly here.
 
-- `aimhub 2` — current working file name used by the raw URL.
-- `aimhub1` — duplicate copy of `aimhub 2` at the moment.
+## Current production compatibility
 
-Both files currently point to the same Git blob, so they contain identical content.
+- `aimhub 2` - current public production artifact/path.
+- `aimhub1` - legacy duplicate retained during migration.
 
-## Recommended cleanup
+These existing paths are intentionally preserved until a new loader/release-manifest flow is tested in parallel. Do not rename or delete them just to make the repository look cleaner.
 
-Use `aimhub 2` as the current file for now and treat `aimhub1` as a duplicate backup until you are ready to remove or rename it.
+## Planned distribution layout
 
-The other repositories on this account (`Aim-Hub` and `AIMHUB`) are placeholders with almost no content, so this repository should be treated as the main one going forward.
+- `loader.lua` - permanent entry point after compatibility testing.
+- `channels/` - small stable/beta channel manifests.
+- `releases/<version>/` - immutable published artifacts.
+- `docs/` - public distribution and migration documentation.
+
+Published artifacts should be generated from a known, tested commit in the private source repository. The public artifact should record its source revision and release version so rollback is deterministic.
+
+## Versioning
+
+AimHub uses semantic release versions and prereleases instead of numbered filenames. Examples: `v1.2.3`, `v1.3.0-beta.1`.
+
+## Important
+
+The current raw URL remains supported throughout the migration. A replacement becomes the stable path only after it is built, tested, and verified against the public raw endpoint.
