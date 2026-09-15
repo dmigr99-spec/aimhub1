@@ -1,0 +1,5 @@
+# Security-sensitive automation and trust policies
+/.github/workflows/ @dmigr99-spec
+/.github/chainguard/ @dmigr99-spec
+/AGENTS.md @dmigr99-spec
+/CLAUDE.md @dmigr99-spec
