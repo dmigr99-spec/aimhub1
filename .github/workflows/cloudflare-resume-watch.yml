@@ -1,0 +1,57 @@
+name: Cloudflare Migration Resume Signal
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "aimhub1"
+      - "aimhub 2"
+      - "channels/**"
+      - "releases/**"
+      - "docs/DISTRIBUTION.md"
+      - ".github/workflows/distribution-checks.yml"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: cloudflare-resume-signal
+  cancel-in-progress: false
+
+jobs:
+  signal-follow-up:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment on migration tracking issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: "6"
+          REPOSITORY: ${{ github.repository }}
+          COMMIT_SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+
+          state="$(gh issue view "$ISSUE_NUMBER" --repo "$REPOSITORY" --json state --jq '.state')"
+          if [ "$state" != "OPEN" ]; then
+            echo "Migration issue #$ISSUE_NUMBER is not open; no reminder needed."
+            exit 0
+          fi
+
+          short_sha="${COMMIT_SHA:0:7}"
+          commit_url="https://github.com/${REPOSITORY}/commit/${COMMIT_SHA}"
+
+          body=$(cat <<EOF
+          <!-- cloudflare-v1-resume-signal -->
+          Relevant legacy-distribution change landed on \`main\`.
+
+          - Commit: [\`${short_sha}\`](${commit_url})
+          - Actor: \`${ACTOR}\`
+
+          Resume the Cloudflare v1 follow-up from this issue before changing the migration plan. Keep the existing gates in place until the replacement endpoint passes a real external test.
+          EOF
+          )
+
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPOSITORY" --body "$body"
